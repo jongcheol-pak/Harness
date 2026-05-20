@@ -1,0 +1,187 @@
+﻿# validate.ps1 — pjc plugin 설치 후 정상 동작 검증
+#
+# 사용법:
+#   .\validate.ps1
+#
+# 검증 항목:
+#   1. plugin 디렉터리 존재
+#   2. plugin.json + marketplace.json 유효
+#   3. skill 6개 모두 등록
+#   4. agent 6개 모두 등록
+#   5. hook 5개 모두 등록 + BOM 확인
+#   6. 모든 ps1 파일에 UTF-8 BOM
+#   7. JSON 파일 파싱 가능
+#   8. 토글 디렉터리 접근 가능
+
+param(
+    [switch]$Verbose
+)
+
+$ErrorActionPreference = 'Stop'
+
+$pluginRoot = Join-Path $env:USERPROFILE ".claude\plugins\cache\pjc-harness\plugins\pjc"
+$marketplaceRoot = Join-Path $env:USERPROFILE ".claude\plugins\marketplaces\pjc-harness"
+
+$pass = 0
+$fail = 0
+$warnings = @()
+
+function Test-Item-Exists {
+    param([string]$Path, [string]$Description)
+    if (Test-Path -LiteralPath $Path) {
+        Write-Host "  [OK]   $Description" -ForegroundColor Green
+        $script:pass++
+        return $true
+    } else {
+        Write-Host "  [FAIL] $Description" -ForegroundColor Red
+        Write-Host "         경로: $Path" -ForegroundColor DarkGray
+        $script:fail++
+        return $false
+    }
+}
+
+function Test-Json-Valid {
+    param([string]$Path, [string]$Description)
+    try {
+        $null = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+        Write-Host "  [OK]   $Description" -ForegroundColor Green
+        $script:pass++
+        return $true
+    } catch {
+        Write-Host "  [FAIL] $Description" -ForegroundColor Red
+        Write-Host "         오류: $_" -ForegroundColor DarkGray
+        $script:fail++
+        return $false
+    }
+}
+
+function Test-Ps1-Bom {
+    param([string]$Path)
+    if (-not (Test-Path -LiteralPath $Path)) { return $false }
+    $bytes = [System.IO.File]::ReadAllBytes($Path)
+    if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+        return $true
+    }
+    return $false
+}
+
+Write-Host "=== pjc plugin 검증 시작 ===" -ForegroundColor Cyan
+Write-Host ""
+
+# 1. Plugin 디렉터리 구조
+Write-Host "1. Plugin 디렉터리 구조" -ForegroundColor Yellow
+Test-Item-Exists $pluginRoot "plugin 루트 디렉터리" | Out-Null
+Test-Item-Exists (Join-Path $pluginRoot ".claude-plugin\plugin.json") "plugin.json" | Out-Null
+Test-Item-Exists $marketplaceRoot "marketplace 루트 디렉터리" | Out-Null
+Write-Host ""
+
+# 2. JSON 파일 유효성
+Write-Host "2. JSON 파일 유효성" -ForegroundColor Yellow
+Test-Json-Valid (Join-Path $pluginRoot ".claude-plugin\plugin.json") "plugin.json 파싱" | Out-Null
+Test-Json-Valid (Join-Path $pluginRoot "hooks\hooks.json") "hooks.json 파싱" | Out-Null
+Test-Json-Valid (Join-Path $pluginRoot "settings.json") "settings.json 파싱" | Out-Null
+Write-Host ""
+
+# 3. Skills 6개
+Write-Host "3. Skills 6개" -ForegroundColor Yellow
+$skills = @('plan-feature', 'implement-task', 'systematic-debugging', 'add-viewmodel', 'add-domain-service', 'harness-toggle')
+foreach ($s in $skills) {
+    $skillPath = Join-Path $pluginRoot "skills\$s\SKILL.md"
+    Test-Item-Exists $skillPath "skill: $s" | Out-Null
+}
+Write-Host ""
+
+# 4. Agents 6개
+Write-Host "4. Agents 6개" -ForegroundColor Yellow
+$agents = @('plan-reviewer', 'spec-compliance-reviewer', 'code-quality-reviewer', 'explorer', 'plan-completion-reviewer', 'spec-prefilter')
+foreach ($a in $agents) {
+    $agentPath = Join-Path $pluginRoot "agents\$a.md"
+    Test-Item-Exists $agentPath "agent: $a" | Out-Null
+}
+Write-Host ""
+
+# 5. Hooks 5개
+Write-Host "5. Hooks 5개" -ForegroundColor Yellow
+$hooks = @('block-destructive.ps1', 'require-plan-for-write.ps1', 'check-utf8-and-lines.ps1', 'require-evidence.ps1', 'impact-warn.ps1')
+foreach ($h in $hooks) {
+    $hookPath = Join-Path $pluginRoot "scripts\$h"
+    if (Test-Item-Exists $hookPath "hook: $h") {
+        if (-not (Test-Ps1-Bom $hookPath)) {
+            Write-Host "         [WARN] BOM 없음 — 한글 인코딩 문제 가능" -ForegroundColor DarkYellow
+            $script:warnings += "Hook $h 에 UTF-8 BOM 없음"
+        }
+    }
+}
+Write-Host ""
+
+# 6. Harness toggle 헬퍼
+Write-Host "6. Harness toggle 헬퍼" -ForegroundColor Yellow
+$togglePath = Join-Path $pluginRoot "scripts\harness-toggle.ps1"
+if (Test-Item-Exists $togglePath "harness-toggle.ps1") {
+    if (-not (Test-Ps1-Bom $togglePath)) {
+        Write-Host "         [WARN] BOM 없음" -ForegroundColor DarkYellow
+        $script:warnings += "harness-toggle.ps1 에 UTF-8 BOM 없음"
+    }
+}
+Write-Host ""
+
+# 7. 토글 디렉터리 접근
+Write-Host "7. 토글 메커니즘" -ForegroundColor Yellow
+$disabledDir = Join-Path $env:USERPROFILE ".claude\.disabled"
+if (Test-Path -LiteralPath $disabledDir) {
+    $disabled = Get-ChildItem -LiteralPath $disabledDir -ErrorAction SilentlyContinue
+    if ($disabled.Count -gt 0) {
+        Write-Host "  [INFO] 현재 비활성화된 hook:" -ForegroundColor Cyan
+        foreach ($d in $disabled) {
+            Write-Host "         - $($d.Name)" -ForegroundColor DarkGray
+        }
+    } else {
+        Write-Host "  [OK]   토글 디렉터리 존재, 모든 hook 활성" -ForegroundColor Green
+    }
+} else {
+    Write-Host "  [OK]   토글 디렉터리 없음 (모든 hook 활성, 정상)" -ForegroundColor Green
+}
+Write-Host ""
+
+# 8. AGENTS.md template
+Write-Host "8. AGENTS.md template" -ForegroundColor Yellow
+$templatePath = Join-Path $pluginRoot "..\..\AGENTS.md.template"
+if (Test-Path -LiteralPath $templatePath) {
+    Write-Host "  [OK]   AGENTS.md.template 존재" -ForegroundColor Green
+    $script:pass++
+} else {
+    # 다른 위치 시도
+    $altPath = Join-Path $marketplaceRoot "AGENTS.md.template"
+    if (Test-Path -LiteralPath $altPath) {
+        Write-Host "  [OK]   AGENTS.md.template 존재 (marketplace)" -ForegroundColor Green
+        $script:pass++
+    } else {
+        Write-Host "  [WARN] AGENTS.md.template 찾을 수 없음 (선택 항목)" -ForegroundColor DarkYellow
+        $script:warnings += "AGENTS.md.template 없음 — 새 프로젝트에 적용할 가이드 없음"
+    }
+}
+Write-Host ""
+
+# 결과 요약
+Write-Host "=== 검증 결과 ===" -ForegroundColor Cyan
+Write-Host "  PASS: $pass" -ForegroundColor Green
+Write-Host "  FAIL: $fail" -ForegroundColor $(if ($fail -gt 0) { 'Red' } else { 'Green' })
+Write-Host "  WARN: $($warnings.Count)" -ForegroundColor $(if ($warnings.Count -gt 0) { 'Yellow' } else { 'Green' })
+
+if ($warnings.Count -gt 0) {
+    Write-Host ""
+    Write-Host "경고 사항:" -ForegroundColor Yellow
+    foreach ($w in $warnings) {
+        Write-Host "  - $w" -ForegroundColor DarkYellow
+    }
+}
+
+Write-Host ""
+if ($fail -eq 0) {
+    Write-Host "✅ plugin 설치 정상" -ForegroundColor Green
+    exit 0
+} else {
+    Write-Host "❌ plugin에 문제 있음. 위 FAIL 항목 확인 후 재설치 권장." -ForegroundColor Red
+    Write-Host "   재설치: install.ps1 -Uninstall 후 install.ps1" -ForegroundColor DarkGray
+    exit 1
+}
