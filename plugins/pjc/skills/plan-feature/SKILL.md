@@ -78,6 +78,8 @@ USER-INTERACTIVE                | FULLY AUTONOMOUS
 
 ### Step 1. 컨텍스트 수집
 - `AGENTS.md` (또는 `CLAUDE.md`) 읽기
+  - **없으면**: `pjc:bootstrap-agents-md` skill 자동 호출 → 사용자 승인 후 plan-feature 계속
+  - 사용자가 bootstrap을 거부하면 추측 모드로 진행 (build/test 명령 모름 → 작업 중 Halt 빈번)
 - 관련 모듈/파일 식별
 - 기존 컨벤션, 테스트 위치, 빌드 명령 확인
 - **대규모 탐색이 필요하면** `explorer` subagent에 위임 (메인 컨텍스트 보호)

@@ -84,7 +84,7 @@ Write-Host ""
 
 # 3. Skills 6개
 Write-Host "3. Skills 6개" -ForegroundColor Yellow
-$skills = @('plan-feature', 'implement-task', 'systematic-debugging', 'add-viewmodel', 'add-domain-service', 'harness-toggle')
+$skills = @('plan-feature', 'implement-task', 'systematic-debugging', 'add-viewmodel', 'add-domain-service', 'harness-toggle', 'bootstrap-agents-md')
 foreach ($s in $skills) {
     $skillPath = Join-Path $pluginRoot "skills\$s\SKILL.md"
     Test-Item-Exists $skillPath "skill: $s" | Out-Null
@@ -143,22 +143,27 @@ if (Test-Path -LiteralPath $disabledDir) {
 }
 Write-Host ""
 
-# 8. AGENTS.md template
-Write-Host "8. AGENTS.md template" -ForegroundColor Yellow
-$templatePath = Join-Path $pluginRoot "..\..\AGENTS.md.template"
-if (Test-Path -LiteralPath $templatePath) {
-    Write-Host "  [OK]   AGENTS.md.template 존재" -ForegroundColor Green
+# 8. AGENTS.md.templates 디렉터리
+Write-Host "8. AGENTS.md.templates 디렉터리" -ForegroundColor Yellow
+$templatesDir = Join-Path $marketplaceRoot "AGENTS.md.templates"
+if (Test-Path -LiteralPath $templatesDir) {
+    Write-Host "  [OK]   AGENTS.md.templates 디렉터리" -ForegroundColor Green
     $script:pass++
-} else {
-    # 다른 위치 시도
-    $altPath = Join-Path $marketplaceRoot "AGENTS.md.template"
-    if (Test-Path -LiteralPath $altPath) {
-        Write-Host "  [OK]   AGENTS.md.template 존재 (marketplace)" -ForegroundColor Green
-        $script:pass++
-    } else {
-        Write-Host "  [WARN] AGENTS.md.template 찾을 수 없음 (선택 항목)" -ForegroundColor DarkYellow
-        $script:warnings += "AGENTS.md.template 없음 — 새 프로젝트에 적용할 가이드 없음"
+
+    $expectedTemplates = @('dotnet.md', 'android.md', 'node-typescript.md', 'python.md', 'go.md', 'rust.md', 'generic.md')
+    foreach ($t in $expectedTemplates) {
+        $tPath = Join-Path $templatesDir $t
+        if (Test-Path -LiteralPath $tPath) {
+            Write-Host "  [OK]   template: $t" -ForegroundColor Green
+            $script:pass++
+        } else {
+            Write-Host "  [WARN] template 없음: $t" -ForegroundColor DarkYellow
+            $script:warnings += "template $t 누락 — bootstrap 시 해당 stack에 generic 사용"
+        }
     }
+} else {
+    Write-Host "  [WARN] AGENTS.md.templates 디렉터리 없음" -ForegroundColor DarkYellow
+    $script:warnings += "AGENTS.md.templates 디렉터리 없음 — bootstrap-agents-md 동작 불가"
 }
 Write-Host ""
 

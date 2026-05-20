@@ -158,9 +158,25 @@ Phase F → 전체 plan 통합 검증 (조건부 진입)
 
 ### V-1. 빌드
 - AGENTS.md의 build 명령 실행. exit 0 확인. 오류 시 Phase I로 1회 복귀 후 재시도.
+- **AGENTS.md 없거나 build 명령 미정의** → 표식 파일로 자동 추론:
+  - `*.csproj`/`*.sln` → `dotnet build`
+  - `build.gradle*` → `./gradlew assembleDebug`
+  - `package.json` → `npm run build` (script 있을 때) 또는 skip
+  - `pyproject.toml` → `python -m build`
+  - `go.mod` → `go build ./...`
+  - `Cargo.toml` → `cargo build`
+  - 위 어느 것도 아님 → Halt → 사용자에게 build 명령 요청
 
 ### V-2. 테스트
 - AGENTS.md의 test 명령 실행. 통과 케이스 수 기록.
+- **AGENTS.md 없거나 test 명령 미정의** → 표식 파일 fallback:
+  - `*.csproj` → `dotnet test`
+  - `build.gradle*` → `./gradlew test`
+  - `package.json` (test script 있음) → `npm test`
+  - `pyproject.toml` → `pytest`
+  - `go.mod` → `go test ./...`
+  - `Cargo.toml` → `cargo test`
+  - 위 어느 것도 아님 → Halt
 
 ### V-3. 린트/정적 분석
 - 프로젝트 표준 도구 실행. 신규 경고 0 확인.

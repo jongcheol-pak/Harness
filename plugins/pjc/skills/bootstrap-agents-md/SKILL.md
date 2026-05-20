@@ -1,0 +1,196 @@
+---
+description: Use when starting work on a project that has no AGENTS.md file. Triggered automatically by plan-feature when AGENTS.md is missing, or manually with "/pjc:bootstrap-agents-md". Detects project stack from marker files (.csproj, package.json, pyproject.toml, etc.) and generates a minimal AGENTS.md from one of 7 templates. If stack is unknown, asks the user.
+argument-hint: "(자동)"
+---
+
+# Bootstrap AGENTS.md
+
+프로젝트 루트에 `AGENTS.md`가 없을 때, 표식 파일을 감지하여 적절한 template으로
+초기 `AGENTS.md`를 생성한다.
+
+## 호출 흐름
+
+| 시점 | 호출 방식 |
+|---|---|
+| `plan-feature` Step 1에서 AGENTS.md 부재 감지 | 자동 호출 |
+| 사용자 직접 호출 | `/pjc:bootstrap-agents-md` |
+
+생성 후 plan-feature가 그 `AGENTS.md`를 읽고 정상 진행.
+
+## 절대 규칙
+
+1. **사용자 확인 없이 저장 금지.** 생성한 내용을 보여주고 명시적 승인 받음.
+2. **기존 AGENTS.md 덮어쓰기 금지.** 있으면 즉시 종료.
+3. **빈 칸은 빈 칸으로 유지.** 모르는 정보를 추측해 채우지 않음.
+4. **다중 stack 발견 시 사용자에게 선택 요청.**
+
+## 실행 단계
+
+### Step 1. 기존 AGENTS.md 확인
+
+```bash
+test -f AGENTS.md || test -f CLAUDE.md
+```
+있으면 → 즉시 종료, plan-feature로 복귀.
+
+### Step 2. 표식 파일 감지
+
+다음 표 순서대로 검사 (위에서부터):
+
+| 표식 파일 (glob) | Stack | Template 파일 |
+|---|---|---|
+| `*.csproj`, `*.sln`, `*.fsproj` | .NET | `dotnet.md` |
+| `build.gradle*`, `settings.gradle*`, `AndroidManifest.xml` | Android | `android.md` |
+| `package.json` + `tsconfig.json` 또는 `*.ts` 파일 | Node/TypeScript | `node-typescript.md` |
+| `package.json` (TS 없음) | Node/JavaScript | `node-typescript.md` (라벨만 변경) |
+| `pyproject.toml`, `setup.py`, `requirements*.txt` | Python | `python.md` |
+| `go.mod` | Go | `go.md` |
+| `Cargo.toml` | Rust | `rust.md` |
+
+검색 명령 (PowerShell):
+```powershell
+$markers = @{
+    'dotnet'          = @('*.csproj', '*.sln', '*.fsproj')
+    'android'         = @('build.gradle', 'build.gradle.kts', 'settings.gradle', 'settings.gradle.kts')
+    'node-typescript' = @('package.json', 'tsconfig.json')
+    'python'          = @('pyproject.toml', 'setup.py')
+    'go'              = @('go.mod')
+    'rust'            = @('Cargo.toml')
+}
+$detected = @()
+foreach ($stack in $markers.Keys) {
+    foreach ($pattern in $markers[$stack]) {
+        if (Get-ChildItem -Filter $pattern -ErrorAction SilentlyContinue) {
+            $detected += $stack
+            break
+        }
+    }
+}
+```
+
+### Step 3. 결과 분기
+
+#### Case A — 단일 stack 매칭됨
+
+해당 `templates/<stack>.md` 복사 + 자동 추론 가능한 값 채움.
+
+자동 채울 수 있는 값:
+- **dotnet**: `*.sln` 파일명으로 솔루션 경로 추정
+- **android**: `app/build.gradle`에서 namespace/minSdk/targetSdk 추출
+- **node-typescript**: `package.json`의 `scripts` 분석 (build, test, dev, lint)
+- **python**: `pyproject.toml`의 project.name, tool.pytest 설정
+- **go**: `go.mod`의 module 경로
+- **rust**: `Cargo.toml`의 package.name, edition
+
+#### Case B — 표식 알지만 template 없음
+
+예: `pubspec.yaml` (Flutter), `Package.swift` (Swift), `Gemfile` (Ruby), `mix.exs` (Elixir)
+
+→ `templates/generic.md`로 복사 + 다음 정보로 채움:
+- Stack: <감지된 라벨>
+- Build/Test: 알려진 추측치 (있으면, 주석으로 "추측"임 표시)
+
+추측치 매핑 (확신 없음 표시):
+```
+pubspec.yaml → "Flutter | flutter build / flutter test (추측)"
+Package.swift → "Swift | swift build / swift test (추측)"
+Gemfile      → "Ruby | bundle install / bundle exec rspec (추측)"
+mix.exs      → "Elixir | mix compile / mix test (추측)"
+build.zig    → "Zig | zig build / zig build test (추측)"
+```
+
+#### Case C — 표식조차 없음
+
+`generic.md` 복사. 모든 값 빈 칸. 사용자에게 4가지 질문:
+
+```
+프로젝트의 stack을 자동 감지하지 못했습니다.
+
+발견된 주요 파일:
+- <Get-ChildItem 결과 상위 10개>
+
+다음 4가지만 알려주세요:
+1. 언어/플랫폼은? (예: Flutter, Swift, Ruby, Elixir, Zig, ...)
+2. Build 명령은? (예: zig build)
+3. Test 명령은? (예: zig build test)
+4. 아키텍처/디렉터리 구조 간단히
+```
+
+답변을 받아 `generic.md`에 채움.
+
+#### Case D — 다중 stack 발견 (모노레포)
+
+```
+이 프로젝트에서 여러 stack을 발견했습니다:
+- .NET (src/Backend/Backend.csproj)
+- Node.js (frontend/package.json)
+- Python (scripts/pyproject.toml)
+
+어떤 작업을 주로 하실 건가요?
+A) .NET 위주 → dotnet 명령 기본
+B) Node.js 위주 → npm 명령 기본
+C) Python 위주 → pytest 등 기본
+D) 모두 → AGENTS.md에 3개 섹션 (큰 파일)
+```
+
+D 선택 시 `multi-stack-example.md`를 참고하여 3개 섹션 모두 작성.
+
+### Step 4. 생성된 AGENTS.md 사용자에게 보여주기
+
+```markdown
+다음 AGENTS.md를 생성했습니다. 검토하세요:
+
+---
+<생성된 내용 전체>
+---
+
+이대로 저장할까요?
+[Y] 그대로 저장
+[E] 편집 후 저장 (어디를 수정할지 알려주세요)
+[N] 취소
+```
+
+### Step 5. 저장 + plan-feature로 복귀
+
+`Y` → `./AGENTS.md`에 저장 → "AGENTS.md 생성 완료" 보고 → plan-feature 계속.
+`E` → 사용자 수정 사항 반영 → 다시 보여주기.
+`N` → 종료. plan-feature는 추측 모드로 진행 (또는 사용자가 plan-feature 재호출).
+
+## 출력 형식
+
+```markdown
+## 🔧 bootstrap-agents-md
+
+**감지 결과**: <stack>
+**Template 사용**: <template 파일명>
+**자동 채움**:
+- Build 명령: <값>
+- Test 명령: <값>
+- 아키텍처: <값>
+**비워둔 항목** (사용자 입력 필요):
+- <항목 1>
+- <항목 2>
+
+<생성된 AGENTS.md 전체 미리보기>
+
+저장하시겠습니까? [Y/E/N]
+```
+
+## 행동 원칙
+
+- **추측은 명시.** 확신 없는 값은 "(추측)" 또는 "<TODO>" 표시.
+- **사용자 시간 절약.** 자동으로 채울 수 있는 건 모두 채움.
+- **빈 칸 유지가 추측 채움보다 안전.** 사용자가 채우게 함.
+- **간결.** 사용자에게 보여주는 메시지는 핵심만.
+
+## Template 위치
+
+plugin 패키지의 `AGENTS.md.templates/` 디렉터리:
+- `dotnet.md`
+- `android.md`
+- `node-typescript.md`
+- `python.md`
+- `go.md`
+- `rust.md`
+- `generic.md` — 매칭 실패 또는 알려지지 않은 stack용
+- `multi-stack-example.md` — 모노레포 참고용

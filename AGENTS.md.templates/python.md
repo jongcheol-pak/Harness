@@ -1,0 +1,61 @@
+# AGENTS.md — Agent Guide
+
+> Python 프로젝트용 가이드.
+
+## Stack
+- **언어**: Python <3.11+>
+- **패키지 매니저**: <pip / poetry / uv / pdm>
+- **주요 프레임워크**: <FastAPI / Django / Flask / pytorch 등>
+- **테스트**: pytest
+
+## Build & Test
+- **가상환경 생성**: `python -m venv .venv` 또는 `uv venv` / `poetry shell`
+- **설치**: `pip install -e .` 또는 `poetry install` / `uv pip install -e .`
+- **Build (배포 패키지)**: `python -m build`
+- **Test**: `pytest` 또는 `pytest tests/`
+- **Test (coverage)**: `pytest --cov=src --cov-report=term-missing`
+- **Lint**: `ruff check src tests`
+- **Format**: `ruff format src tests` 또는 `black src tests`
+- **Type check**: `mypy src` 또는 `pyright`
+
+## Repository Structure
+
+```
+<repo>/
+├── src/<package>/
+│   ├── domain/           # 비즈니스 로직 (pure Python)
+│   ├── application/      # UseCases, Services
+│   ├── infrastructure/   # DB, External API
+│   └── interfaces/       # FastAPI routes, CLI 등
+├── tests/
+│   ├── unit/
+│   └── integration/
+├── pyproject.toml
+└── (선택) .python-version
+```
+
+## Conventions
+- **타입 힌트 의무**. mypy/pyright strict 권장.
+- **아키텍처**: Layered / Clean. 의존: interfaces → application → domain ← infrastructure
+- **에러 처리**: 명시적 예외 클래스 또는 `Result` 패턴. Bare `except:` 금지.
+- **비동기**: `async`/`await` (FastAPI 등). 동기/비동기 코드 혼용 주의.
+- **테스트**: pytest fixture 활용. mock은 `pytest-mock` 또는 `unittest.mock`.
+- **포맷**: PEP 8 + ruff/black. line length 100~120.
+- **파일**: 1500라인 내외, UTF-8, 주석/docstring은 한글
+- **Naming**: snake_case (함수/변수), PascalCase (클래스), UPPER_CASE (상수)
+
+## DO NOT
+- `.env`, secrets, `*.pem` 커밋
+- `__pycache__/`, `.pytest_cache/`, `.mypy_cache/`, `*.egg-info/` 커밋
+- 모듈 import 시 부수효과 (top-level DB 연결 등)
+- `global` 변수 사용
+- `pickle` 신뢰할 수 없는 데이터 역직렬화
+
+## Plan Location
+- 단일 plan: `plan.md`
+- 여러 plan 누적: `docs/plans/<YYYY-MM-DD>-<slug>.md`
+
+## 추가 정보
+- Python 버전: `.python-version` 또는 `pyproject.toml`의 `requires-python`
+- CI/CD: <GitHub Actions / GitLab CI>
+- 배포: <PyPI / Docker / 서버 직배포>

@@ -2,9 +2,14 @@
 # pjc Claude Code Harness Plugin - 자동 설치 스크립트
 #
 # 사용법:
-#   .\install.ps1
+#   .\install.ps1                   # 기본 (자동 감지 + 재설치)
 #   .\install.ps1 -Scope project    # 프로젝트별 설치 (.claude/settings.json)
-#   .\install.ps1 -Uninstall        # 제거
+#   .\install.ps1 -Uninstall        # 제거만
+#   .\install.ps1 -KeepExisting     # 이미 설치되어 있으면 그대로 둠 (옛 동작)
+#
+# 기본 동작 (1.11.1+):
+#   기존 설치를 자동 감지하여, 발견 시 uninstall → 캐시 정리 → install을 한 번에 수행.
+#   토글 상태(.disabled 디렉터리)는 보존.
 #
 # Claude Code REPL이 실행 중이면 종료 후 다시 시작해야 변경이 반영됩니다.
 
@@ -14,7 +19,9 @@ param(
 
     [switch]$Uninstall,
 
-    [switch]$SkipVerification
+    [switch]$SkipVerification,
+
+    [switch]$KeepExisting
 )
 
 $ErrorActionPreference = 'Stop'
@@ -96,7 +103,64 @@ if ($claudeProc) {
     Write-Info "설치 후 변경 사항을 반영하려면 종료 후 다시 시작하세요."
 }
 
-# ---- 5. Marketplace 추가 ----
+# ---- 5. 기존 설치 자동 감지 + 재설치 (1.11.1+ 기본 동작) ----
+$cacheDir = Join-Path $env:USERPROFILE ".claude\plugins\cache\pjc-harness"
+$marketplaceCacheDir = Join-Path $env:USERPROFILE ".claude\plugins\marketplaces\pjc-harness"
+
+$existingInstall = (Test-Path -LiteralPath $cacheDir) -or (Test-Path -LiteralPath $marketplaceCacheDir)
+
+if ($existingInstall) {
+    if ($KeepExisting) {
+        Write-Section "Existing Installation Detected (Keeping)"
+        Write-Info "기존 설치를 유지합니다 (-KeepExisting 옵션)."
+        Write-Info "변경 사항이 반영되지 않을 수 있습니다."
+    } else {
+        Write-Section "Existing Installation Detected — Auto Reinstall"
+        Write-Info "기존 설치를 발견했습니다. 자동으로 재설치를 진행합니다."
+        Write-Info "(토글 상태(.disabled)는 보존됩니다.)"
+
+        # 5-1. plugin uninstall
+        try {
+            & claude plugin uninstall pjc 2>&1 | ForEach-Object { Write-Info "  $_" }
+            Write-Ok "Plugin uninstalled"
+        } catch {
+            Write-Warn "Plugin 제거 실패 (이미 제거됨일 수 있음)"
+        }
+
+        # 5-2. marketplace remove
+        try {
+            & claude plugin marketplace remove pjc-harness 2>&1 | ForEach-Object { Write-Info "  $_" }
+            Write-Ok "Marketplace removed"
+        } catch {
+            Write-Warn "Marketplace 제거 실패 (이미 제거됨일 수 있음)"
+        }
+
+        # 5-3. 캐시 디렉터리 강제 정리 (stale cache 버그 회피)
+        if (Test-Path -LiteralPath $cacheDir) {
+            try {
+                Remove-Item -Recurse -Force -LiteralPath $cacheDir -ErrorAction Stop
+                Write-Ok "Cache 정리: $cacheDir"
+            } catch {
+                Write-Warn "Cache 디렉터리 삭제 실패: $($_.Exception.Message)"
+            }
+        }
+        if (Test-Path -LiteralPath $marketplaceCacheDir) {
+            try {
+                Remove-Item -Recurse -Force -LiteralPath $marketplaceCacheDir -ErrorAction Stop
+                Write-Ok "Marketplace cache 정리: $marketplaceCacheDir"
+            } catch {
+                Write-Warn "Marketplace cache 삭제 실패: $($_.Exception.Message)"
+            }
+        }
+
+        Write-Ok "기존 설치 정리 완료. 새 설치 진행."
+    }
+} else {
+    Write-Section "Fresh Install"
+    Write-Info "기존 설치 없음. 새로 설치합니다."
+}
+
+# ---- 6. Marketplace 추가 ----
 Write-Section "Adding Marketplace"
 
 try {
@@ -113,7 +177,7 @@ try {
     }
 }
 
-# ---- 6. Plugin 설치 ----
+# ---- 7. Plugin 설치 ----
 Write-Section "Installing Plugin"
 
 try {
@@ -130,7 +194,7 @@ try {
     }
 }
 
-# ---- 7. 검증 ----
+# ---- 8. 검증 ----
 if (-not $SkipVerification) {
     Write-Section "Verification"
 
@@ -147,7 +211,7 @@ if (-not $SkipVerification) {
     }
 }
 
-# ---- 8. 실행 정책 안내 ----
+# ---- 9. 실행 정책 안내 ----
 Write-Section "PowerShell Execution Policy"
 
 $policy = Get-ExecutionPolicy -Scope CurrentUser
@@ -161,16 +225,25 @@ if ($policy -in @('Restricted', 'AllSigned')) {
     Write-Ok "Execution policy 호환: $policy"
 }
 
-# ---- 9. AGENTS.md 안내 ----
+# ---- 10. AGENTS.md 안내 ----
 Write-Section "Next Steps"
 
-$templatePath = Join-Path $marketplacePath "AGENTS.md.template"
-if (Test-Path $templatePath) {
-    Write-Host "  각 프로젝트의 루트에 AGENTS.md를 배치하세요:" -ForegroundColor White
+$templatesDir = Join-Path $marketplacePath "AGENTS.md.templates"
+if (Test-Path $templatesDir) {
+    Write-Host "  각 프로젝트의 루트에 AGENTS.md를 배치하세요." -ForegroundColor White
+    Write-Host "  자동 생성 (권장):" -ForegroundColor White
     Write-Host ""
     Write-Host "    cd C:\Repos\<your-project>" -ForegroundColor Yellow
-    Write-Host "    Copy-Item `"$templatePath`" .\AGENTS.md" -ForegroundColor Yellow
-    Write-Host "    notepad .\AGENTS.md   # 플레이스홀더 채우기" -ForegroundColor Yellow
+    Write-Host "    claude" -ForegroundColor Yellow
+    Write-Host "    > /pjc:bootstrap-agents-md   # stack 자동 감지 + AGENTS.md 생성" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  또는 수동 (template에서 복사):" -ForegroundColor White
+    Write-Host ""
+    Write-Host "    # 사용 가능 templates:" -ForegroundColor DarkGray
+    Get-ChildItem -Path $templatesDir -Filter "*.md" | ForEach-Object {
+        Write-Host "    #   $($_.Name)" -ForegroundColor DarkGray
+    }
+    Write-Host "    Copy-Item `"$templatesDir\<stack>.md`" .\AGENTS.md" -ForegroundColor Yellow
     Write-Host ""
 }
 
