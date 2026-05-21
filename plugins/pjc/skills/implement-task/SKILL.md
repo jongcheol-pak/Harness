@@ -81,6 +81,28 @@ USER-INTERACTIVE                | FULLY AUTONOMOUS
 
 **사용자 승인은 plan-feature 단계에서 plan.md에 대해 단 1회만 받았다.** plan.md = 전체 작업의 위임장.
 
+### 🧠 컨텍스트 관리 (장시간 작업 대비)
+
+자율 루프가 길어지면 컨텍스트가 누적되어 후반 task의 품질이 저하될 수 있다. 다음을 지킨다:
+
+1. **각 task는 독립적으로 처리.**
+   - 이전 task에서 읽은 파일 내용·빌드 로그에 의존하지 않는다.
+   - 필요한 정보는 **plan.md와 git에서 다시 확인** (둘 다 영구 저장됨).
+   - 이전 task 상세를 기억하려 애쓰지 말 것 — 이미 commit과 plan.md에 있음.
+
+2. **빌드/테스트 로그는 핵심만 유지.**
+   - 전체 로그 원문을 컨텍스트에 길게 남기지 않는다.
+   - "Build OK / Tests 12/12 passed" 같은 결과 + 실패 시 핵심 에러만.
+
+3. **2개 task마다 Progress Log 갱신.**
+   - plan.md의 `## Progress Log`에 완료 task 요약 1-2줄 기록.
+   - 이후 task는 전체 대화 history 대신 이 요약 + git log 참조.
+
+4. **컨텍스트 한계 근접 감지 시 중간 보고.**
+   - 응답이 비정상적으로 느려지거나 컨텍스트가 과밀하다고 판단되면
+   - 현재까지 진행을 plan.md에 기록 + commit 후 사용자에게 "중간 체크포인트" 보고 (Halt).
+   - 사용자가 새 세션에서 "T<N>부터 계속"으로 재개 가능.
+
 ### 진행 흐름
 
 ```
@@ -88,7 +110,7 @@ loop over plan.md tasks (T1, T2, ..., Tn):
   Phase P → 변경 전략 확정, caller 사전 추적
   Phase I → 최소 변경으로 구현
   Phase V → Type별 fast-path (V-1~V-8)
-  Phase D → checkpoint commit → 즉시 다음 task로
+  Phase D → checkpoint commit → (2 task마다 Progress Log) → 즉시 다음 task로
 
 # 모든 task 완료 후
 Phase F → 전체 plan 통합 검증 (조건부 진입)
@@ -98,6 +120,15 @@ Phase F → 전체 plan 통합 검증 (조건부 진입)
 ## Phase P — Plan (작업 단위)
 
 각 task에 대해 Phase I 진입 전 다음 확인.
+
+### 재개 진입 (중간 체크포인트에서 이어하기)
+
+"T<N>부터 계속" 같은 요청으로 시작하는 경우:
+1. plan.md의 `## Progress Log`를 읽어 완료 task 파악
+2. `git log`로 마지막 commit 상태 확인
+3. plan.md의 task 체크박스로 미완료 task 식별
+4. 지정된 task(또는 첫 미완료 task)부터 Phase P 시작
+5. 이전 task 상세는 Progress Log + git으로만 참조 (전체 history 불필요)
 
 ### P-1. plan.md 해당 task 정독
 - task의 Acceptance, Files, Edge Cases, Halt Forecast, Type 모두 확인.
@@ -259,6 +290,19 @@ Elapsed: <Hm Ms> | Turn ~<N>
 ```
 
 이 보고는 **알림**이지 **확인 요청이 아니다**. 사용자 응답을 기다리지 말고 즉시 T<N+1>의 Phase P를 시작한다.
+
+### Progress Log 갱신 (2 task마다 또는 큰 task 후)
+
+장시간 작업의 컨텍스트 누적 대비. plan.md의 `## Progress Log`에 기록:
+
+```markdown
+## Progress Log
+- T1-T2 완료 (커밋 abc123, def456): SettingsViewModel + Page 바인딩 추가. 빌드/테스트 OK.
+- T3-T4 완료 (커밋 ghi789, jkl012): ThemeService 추가 + App.xaml 적용. 회귀 없음.
+```
+
+이후 task는 전체 대화 history 대신 이 Progress Log + git log를 참조한다.
+이렇게 하면 컨텍스트가 압축(auto-compact)되어도 plan.md에 진행 상황이 남아 복구가 쉽다.
 
 ### 🚫 금지 표현
 

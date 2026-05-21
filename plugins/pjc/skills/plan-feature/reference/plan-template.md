@@ -73,6 +73,11 @@ AGENTS.md에 `Plan Location: <plan.md | docs/plans/>`로 명시되어 있으면 
 - 통합 테스트: `<있다면>`
 - 수동 검증 (필요 시): `<절차>`
 
+## Progress Log
+<!-- implement-task가 2 task마다 갱신. 장시간 작업의 컨텍스트 누적 대비. -->
+<!-- 예: -->
+<!-- - T1-T2 완료 (커밋 abc123, def456): <핵심 변경 요약> -->
+
 ## Open Questions
 - [ ] Q1: <질문> (사용자 답변 후 plan 갱신)
 ```

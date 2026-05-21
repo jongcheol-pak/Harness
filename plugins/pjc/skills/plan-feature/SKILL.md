@@ -141,6 +141,22 @@ USER-INTERACTIVE                | FULLY AUTONOMOUS
 
 확실하지 않으면 **한 단계 더 무거운 쪽 선택** (안전 우선).
 
+#### 긴 plan 분할 권고 (컨텍스트 관리)
+
+task가 **8개를 초과**하면 사용자에게 분할을 제안한다:
+
+```
+이 plan은 <N>개 task로 큽니다. implement-task의 자율 실행 중
+컨텍스트가 누적되어 후반 task의 품질이 저하될 수 있습니다.
+
+A) 그대로 진행 (Progress Log로 일부 완화됨)
+B) 2개 plan으로 분할 (T1-<M>, T<M+1>-<N>)
+   → 첫 plan 완료 후 두 번째 plan 별도 실행
+```
+
+분할 시 각 plan은 독립 실행 가능하도록 task 의존성을 고려해 경계를 정한다.
+사용자가 A를 택하면 그대로 진행하되, implement-task가 Progress Log를 적극 활용.
+
 ### Step 6. Decision Points 발굴
 
 각 task에 대해 결정 분기를 사전 해결.
