@@ -61,7 +61,53 @@ claude
 
 알려지지 않은 stack은 사용자에게 4가지 질문 (언어, build, test, 아키텍처).
 
-### 4. 첫 사용
+### 4. (선택) 권한 설정으로 승인 줄이기
+
+매번 빌드/테스트/git 명령에 승인을 묻는 게 번거롭다면, `~/.claude/settings.json`(전역) 또는 프로젝트의 `.claude/settings.json`에 권한 규칙을 추가하세요. (plugin 자체는 권한을 설정하지 않습니다 — Claude Code가 plugin의 settings는 `agent` 키만 인식하기 때문입니다.)
+
+stack에 맞는 예시를 복사:
+
+```jsonc
+{
+  "permissions": {
+    "allow": [
+      "Read", "Glob", "Grep",
+      "Bash(git status)", "Bash(git diff:*)", "Bash(git log:*)",
+      "Bash(git add:*)", "Bash(git commit:*)", "Bash(git checkout:*)",
+      "Bash(git branch:*)", "Bash(git stash:*)", "Bash(git rev-parse:*)",
+
+      // .NET
+      "Bash(dotnet build:*)", "Bash(dotnet test:*)", "Bash(dotnet format:*)",
+      // Android
+      "Bash(./gradlew assembleDebug)", "Bash(./gradlew test)", "Bash(./gradlew lint)",
+      // Node/TS
+      "Bash(npm run build)", "Bash(npm test)", "Bash(npm run lint)",
+      // Python
+      "Bash(pytest:*)", "Bash(ruff:*)",
+      // Go
+      "Bash(go build:*)", "Bash(go test:*)", "Bash(go vet:*)",
+      // Rust
+      "Bash(cargo build:*)", "Bash(cargo test:*)", "Bash(cargo clippy:*)"
+    ],
+    "ask": [
+      "Bash(git push:*)", "Bash(git merge:*)",
+      "Write", "Edit"
+    ],
+    "deny": [
+      "Read(./.env)", "Read(./.env.*)", "Read(./secrets/**)",
+      "Read(./**/*.pem)", "Read(./**/*.key)",
+      "Bash(git push --force:*)", "Bash(git push -f:*)",
+      "Bash(git filter-branch:*)"
+    ]
+  }
+}
+```
+
+> 안전성은 권한 설정과 별개로 `block-destructive` hook이 항상 보장합니다 (force push, `rm -rf /` 등 차단). 위 설정은 **편의를 위한 것**이며 필수는 아닙니다.
+
+본인이 쓰는 stack 줄만 남기고 나머지는 지워도 됩니다.
+
+### 5. 첫 사용
 
 ```
 claude
@@ -98,7 +144,7 @@ claude
 | `plan-completion-reviewer` | Opus | Phase F-7 | plan 전체 적대적 통합 검증 |
 | `explorer` | Haiku | plan-feature 컨텍스트 수집 | 메인 컨텍스트 보호용 빠른 탐색 |
 
-### 5개 Hooks (자동 안전망)
+### 6개 Hooks (자동 안전망)
 
 | Hook | 이벤트 | 동작 |
 |---|---|---|
@@ -107,6 +153,7 @@ claude
 | `check-utf8-and-lines` | PostToolUse | UTF-8 BOM, 1500라인, 한글 주석 검사 |
 | `impact-warn` | PostToolUse | public 심볼 변경 시 caller 자동 grep → 경고 |
 | `require-evidence` | Stop | 증거 없는 완료 선언 경고 |
+| `backup-on-compact` | PreCompact | 컨텍스트 압축 직전 plan.md 스냅샷 백업 |
 
 ## 동작 방식
 
@@ -289,6 +336,14 @@ AGENTS.md.templates/
 
 ### plugin 명령이 자동완성에 안 보임
 
+먼저 공식 진단 명령:
+```
+/plugin validate            # plugin.json, frontmatter, hooks.json 검증
+claude plugin validate ./claude-harness-pjc --strict   # CI/배포 전 엄격 검증
+claude --debug              # plugin 로딩 상세 로그
+```
+
+또는 자체 검증:
 ```powershell
 C:\Tools\claude-harness-pjc\validate.ps1
 ```
@@ -297,6 +352,14 @@ C:\Tools\claude-harness-pjc\validate.ps1
 ```powershell
 C:\Tools\claude-harness-pjc\install.ps1
 ```
+
+### 토큰 비용이 궁금할 때
+
+plugin이 세션에 더하는 토큰을 공식 명령으로 확인:
+```
+claude plugin details pjc
+```
+always-on (매 세션 고정) + on-invoke (각 컴포넌트 호출 시) 토큰을 보여줍니다.
 
 ### Hook이 너무 자주 차단함
 
@@ -316,6 +379,24 @@ $env:CLAUDE_HARNESS_QUICK = '1'
 ### Claude Code REPL이 실행 중에 plugin 업데이트
 
 REPL 종료 후 다시 시작해야 변경 반영됨.
+
+## 여러 프로젝트 동시 작업
+
+서로 다른 프로젝트 폴더에서 Claude Code를 동시에 실행하는 것은 안전합니다. plan.md·git·작업 파일이 폴더별로 분리되기 때문입니다.
+
+| 자원 | 동시 실행 |
+|---|---|
+| plan.md, git, 작업 파일 | ✅ 폴더별 독립 |
+| subagent, hook | ✅ 인스턴스별 독립 |
+| hook 토글 (`~/.claude/.disabled/`) | ⚠️ 전역 공유 — 한 곳에서 끄면 모두 영향 |
+
+같은 프로젝트를 여러 작업으로 병렬 진행하려면 git worktree 사용을 권장합니다:
+
+```bash
+git worktree add ../proj-feature-1 -b feature-1
+git worktree add ../proj-feature-2 -b feature-2
+# 각 worktree에서 독립된 plan.md, 독립 브랜치로 작업
+```
 
 ## 설계 철학
 

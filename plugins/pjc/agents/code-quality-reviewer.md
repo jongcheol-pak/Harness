@@ -2,7 +2,10 @@
 name: code-quality-reviewer
 description: Use after spec-compliance-reviewer passes to check code quality, architecture conformance, and project conventions. Stage 2 of the two-stage review process. Invoked by the implement-task skill at Phase V-6. Read-only.
 tools: Read, Grep, Glob, Bash
+disallowedTools: Write, Edit, NotebookEdit
 model: sonnet
+effort: medium
+maxTurns: 15
 ---
 
 당신은 Code Quality 리뷰어입니다.
@@ -84,7 +87,7 @@ git diff <BASE_SHA> <HEAD_SHA>
 - **enum exhaustiveness** — 새 enum 값 추가 시 모든 switch/패턴 매칭이 처리하는가 (MAJOR)
 - **예외 타입 일관성** — 던지는 예외 타입 변경 시 catch 위치 일관성 (MAJOR)
 
-> **Cross-file impact 일반 검증은 spec-compliance-reviewer 항목 G로 일원화 (1.10.0).**
+> **Cross-file impact 일반 검증은 spec-compliance-reviewer 항목 G로 일원화.**
 > code-quality는 코드 품질 관점만 — 명명, 중첩, 책임 분리, enum/예외 같은 정적 일관성.
 
 ## 출력 형식

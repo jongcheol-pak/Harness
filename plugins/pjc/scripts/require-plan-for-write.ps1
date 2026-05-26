@@ -27,7 +27,7 @@ try {
 if ([string]::IsNullOrWhiteSpace($targetPath)) { exit 0 }
 
 # ---- 항상 허용되는 파일 타입 ----
-# 문서, 설정, plan, 이미지·리소스는 plan 없이도 작성 가능 (1.9.0 — trivial bypass)
+# 문서, 설정, plan, 이미지·리소스는 plan 없이도 작성 가능
 $alwaysAllowedExts = @(
     # 문서
     '.md', '.txt', '.rst',
@@ -36,9 +36,9 @@ $alwaysAllowedExts = @(
     '.editorconfig', '.gitignore', '.gitattributes',
     '.csproj', '.sln', '.props', '.targets',
     '.config',
-    # 이미지 (1.9.0)
+    # 이미지
     '.svg', '.png', '.jpg', '.jpeg', '.gif', '.ico', '.webp', '.bmp',
-    # 리소스 (1.9.0)
+    # 리소스
     '.resx', '.resw',
     # 환경설정
     '.env.example', '.env.sample'
@@ -54,13 +54,13 @@ foreach ($name in $trivialFileNames) {
     if ($baseName -match "^$name(\..+)?$") { exit 0 }
 }
 
-# Android strings.xml, iOS Localizable.strings, .NET resx 같은 리소스 파일명 (1.9.0)
+# Android strings.xml, iOS Localizable.strings, .NET resx 같은 리소스 파일명
 if ($baseName -match '^(strings\.xml|Localizable\.strings|Info\.plist)$') { exit 0 }
 
 # .git, .vs, node_modules, bin, obj 등 시스템 디렉터리 — 허용
 if ($targetPath -match '[\\/](\.git|\.vs|node_modules|bin|obj|dist|build)[\\/]') { exit 0 }
 
-# Android 리소스 디렉터리 (res/values, res/drawable 등) (1.9.0)
+# Android 리소스 디렉터리 (res/values, res/drawable 등)
 if ($targetPath -match '[\\/]res[\\/](values|drawable|mipmap|layout|raw|xml|color|font|menu|anim)') { exit 0 }
 
 # 명시적으로 plan/docs 경로는 항상 허용

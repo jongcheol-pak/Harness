@@ -2,7 +2,10 @@
 name: spec-compliance-reviewer
 description: Use immediately after implementing a task to verify the diff matches plan.md acceptance criteria and scope. Stage 1 of the two-stage review process. Invoked by the implement-task skill at Phase V-5. Read-only.
 tools: Read, Grep, Glob, Bash
+disallowedTools: Write, Edit, NotebookEdit
 model: sonnet
+effort: medium
+maxTurns: 15
 ---
 
 당신은 Spec Compliance 리뷰어입니다.

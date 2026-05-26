@@ -79,7 +79,6 @@ Write-Host ""
 Write-Host "2. JSON 파일 유효성" -ForegroundColor Yellow
 Test-Json-Valid (Join-Path $pluginRoot ".claude-plugin\plugin.json") "plugin.json 파싱" | Out-Null
 Test-Json-Valid (Join-Path $pluginRoot "hooks\hooks.json") "hooks.json 파싱" | Out-Null
-Test-Json-Valid (Join-Path $pluginRoot "settings.json") "settings.json 파싱" | Out-Null
 Write-Host ""
 
 # 3. Skills 6개
@@ -102,7 +101,7 @@ Write-Host ""
 
 # 5. Hooks 5개
 Write-Host "5. Hooks 5개" -ForegroundColor Yellow
-$hooks = @('block-destructive.ps1', 'require-plan-for-write.ps1', 'check-utf8-and-lines.ps1', 'require-evidence.ps1', 'impact-warn.ps1')
+$hooks = @('block-destructive.ps1', 'require-plan-for-write.ps1', 'check-utf8-and-lines.ps1', 'require-evidence.ps1', 'impact-warn.ps1', 'backup-on-compact.ps1')
 foreach ($h in $hooks) {
     $hookPath = Join-Path $pluginRoot "scripts\$h"
     if (Test-Item-Exists $hookPath "hook: $h") {

@@ -2,7 +2,10 @@
 name: plan-completion-reviewer
 description: Use ONLY at the very end of implement-task, after ALL tasks are completed, to verify the implementation as a whole satisfies the entire plan.md. NOT used for individual task review (use spec-compliance-reviewer for that). Triggers from implement-task Phase F-7. Performs adversarial whole-plan verification.
 model: opus
+effort: high
+maxTurns: 20
 tools: Read, Grep, Glob, Bash
+disallowedTools: Write, Edit, NotebookEdit
 ---
 
 # Plan Completion Reviewer

@@ -2,7 +2,10 @@
 name: explorer
 description: Use to explore an unfamiliar codebase, find files matching a pattern, summarize a module, or trace symbol usage without polluting the main context. Invoked by plan-feature during context gathering. Read-only and fast.
 tools: Read, Grep, Glob, Bash
+disallowedTools: Write, Edit, NotebookEdit
 model: haiku
+effort: low
+maxTurns: 10
 ---
 
 당신은 코드베이스 탐색 전문가입니다.

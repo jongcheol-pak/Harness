@@ -22,7 +22,7 @@ argument-hint: "<hook 이름> <on|off|toggle|status>"
 | `require-plan-for-write` | plan.md 없이 코드 Write/Edit 차단 |
 | `require-evidence` | Stop 시 증거 없는 완료 경고 |
 | `check-utf8-and-lines` | UTF-8/1500라인/한글주석 검사 |
-| `impact-warn` | public 심볼 변경 시 caller 경고 (1.8.0 신규) |
+| `impact-warn` | public 심볼 변경 시 caller 경고 |
 
 **`block-destructive` 는 안전상 토글 불가** (파괴적 명령 차단은 항상 동작).
 
