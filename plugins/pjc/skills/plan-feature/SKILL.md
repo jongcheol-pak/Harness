@@ -163,7 +163,7 @@ USER-INTERACTIVE                | FULLY AUTONOMOUS
 
 | Type | 정의 | 적용 Phase V 단계 |
 |---|---|---|
-| **A** (Doc/Config) | `.md`, `.json`, `.yml`, `.csproj`, `.editorconfig` 등 코드 외 파일만 | V-1(빌드만, 적용 시) + V-8 |
+| **A** (Doc/Config) | `.md`, `.json`, `.yml`, `.csproj`, `.editorconfig` 등 코드 외 파일만 | V-8 (빌드 구성 영향 시에만 V-1 추가) |
 | **B** (Trivial Code) | 단일 코드 파일, 단일 메서드/필드, **호출자 변경 없음** (typo, 주석) | V-1 + V-2 + V-5(prefilter) + V-7 + V-8 |
 | **C** (Normal Code) | 단일 또는 2-3개 파일, caller 갱신 있음 | V-1 ~ V-3 + V-5 + V-7 + V-8 |
 | **D** (Complex/Cross-cutting) | 다중 파일, 인터페이스 변경, 시그니처 변경, 직렬화 변경, DDD/아키텍처 영향 | V-1 ~ V-8 **전체 의무** |

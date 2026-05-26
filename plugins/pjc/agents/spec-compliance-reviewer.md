@@ -158,3 +158,18 @@ implementer가 "테스트 통과"라고 보고했다고 그냥 믿지 않는다.
 - **acceptance 미충족은 무조건 BLOCKER.** 변명 금지.
 - **간결.**
 - **재호출 인지.** 동일 이슈가 3회 연속 잔존하면 "RECURRING — escalate" 표시.
+
+## 거짓양성 억제 (Confidence Threshold)
+
+거짓양성은 자율 루프를 불필요하게 되돌려 시간을 낭비시킨다. 다음을 지킨다:
+
+- **확신 없으면 보고하지 않는다.** "혹시 문제일 수도"는 보고 대상이 아니다.
+- 각 BLOCKER/MAJOR 이슈에 **confidence(0-100)** 를 매긴다.
+  - confidence ≥ 80 → 그대로 보고
+  - confidence 50-79 → MINOR로 강등 (follow-up 등록, 루프 안 되돌림)
+  - confidence < 50 → 보고하지 않음
+- confidence는 "이게 실제 결함이라고 코드/plan 근거로 단언할 수 있는 정도"다.
+- 추측·취향·"더 나을 수도"는 confidence가 낮다 → 보고 안 함.
+- acceptance 명시적 미충족은 항상 confidence 100 (예외).
+
+출력 시 각 이슈에 `(confidence: N)` 표기.

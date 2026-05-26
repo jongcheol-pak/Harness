@@ -179,13 +179,21 @@ Phase F → 전체 plan 통합 검증 (조건부 진입)
 
 | Type | 실행 단계 | 생략 단계 |
 |---|---|---|
-| **A** (Doc/Config) | V-1(빌드 적용 시) + V-8 | V-2~V-7 |
-| **B** (Trivial Code) | V-1 + V-2 + V-5(**prefilter Haiku → 의심 시 compliance Sonnet**) + V-7 + V-8 | V-3, V-6 |
+| **A** (Doc/Config) | V-8만 (코드 빌드에 영향 주는 설정이면 V-1 추가) | V-1(대개)~V-7 |
+| **B** (Trivial Code) | V-1 + V-2 + V-5(**prefilter Haiku**) + V-8 (prefilter PASS 시 V-7은 grep 1회로 축소) | V-3, V-6, (V-7 축소) |
 | **C** (Normal Code) | V-1 + V-2 + V-3 + V-5(compliance Sonnet) + V-7 + V-8 | V-6 (선택) |
 | **D** (Complex/Cross-cutting) | V-1 ~ V-8 **전체** (V-5는 compliance Sonnet) | 생략 없음 |
 
 **Task Type 미명시** → D로 간주 (안전 우선).
 **V-4(PostToolUse hook)는 자동 실행** — 모든 Type에서 작동 (UTF-8 + impact-warn).
+
+#### Type A 빌드 판단
+- 순수 문서·주석·README·`.gitignore` 등 **빌드에 영향 없는 파일** → V-1도 skip, V-8만.
+- `.csproj`/`build.gradle`/`package.json` 등 **빌드 구성에 영향 주는 설정** → V-1 빌드 실행.
+
+#### Type B prefilter PASS 시 V-7 축소
+- spec-prefilter(Haiku)가 PASS → 변경 심볼이 trivial이므로 V-7 caller 재검증을 **변경 심볼 grep 1회**로 축소 (전체 재추적 불필요).
+- prefilter가 ESCALATE → 정상 V-5(Sonnet) + V-7 전체 수행.
 
 ### V-1. 빌드
 - AGENTS.md의 build 명령 실행. exit 0 확인. 오류 시 Phase I로 1회 복귀 후 재시도.
@@ -245,6 +253,8 @@ Task Type에 따라 다른 흐름:
 - 누락 발견 → Phase I 복귀.
 
 빌드가 통과해도 잡는 cross-file 마지막 관문.
+
+**Type B + prefilter PASS 시 축소**: 변경 심볼이 trivial하므로 변경한 심볼에 대한 grep 1회만 수행 (전체 심볼 재추적 생략). impact-warn hook(V-4)이 이미 자동 검출했으므로 중복을 줄인다.
 
 ### V-8. Self-Honesty Check
 

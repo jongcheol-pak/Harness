@@ -399,6 +399,26 @@ git worktree add ../proj-feature-2 -b feature-2
 # 각 worktree에서 독립된 plan.md, 독립 브랜치로 작업
 ```
 
+## 공식 Claude Code 기능과의 관계
+
+pjc는 Claude Code의 내장 기능을 대체하지 않고 보완합니다.
+
+| 공식 기능 | pjc와의 관계 |
+|---|---|
+| `/code-review` (PR correctness 리뷰) | **보완** — pjc는 구현 중 plan 준수를 검증(게이트), 공식은 PR 단계에서 correctness 버그를 조언. 둘 다 쓰면 작성 중 + PR 후 이중 점검 |
+| `/security-review` (보안 취약점) | **보완** — pjc는 보안 전용 스캐너가 아니므로, 보안이 중요하면 공식 명령 병행 권장 |
+| Code Review GitHub App (PR 자동) | **보완** — pjc로 작성·검증 후 PR을 열면 공식 App이 클라우드 병렬 에이전트로 재점검 |
+
+권장 워크플로:
+
+```
+pjc (작성 중)                    공식 (PR 후)
+plan-feature → implement-task → [PR 생성] → /code-review 또는 Code Review App
+  plan 준수 + 품질 게이트            correctness 버그 + 보안 재점검
+```
+
+pjc의 리뷰 subagent는 **plan.md 명세 준수**와 **프로젝트 규칙(DDD·한글주석 등)**에 집중하고, 공식 기능은 **correctness·보안**과 **PR 워크플로 통합**에 강합니다.
+
 ## 설계 철학
 
 - **예측 코드 방지 > 토큰 비용 절감**: 다층 검증 비용은 재작업 비용보다 작음

@@ -125,3 +125,17 @@ git diff <BASE_SHA> <HEAD_SHA>
 - **취향 vs 결함 구분.** 단순 선호 차이는 지적하지 않음 (이름 다르게 쓰자 등).
 - **간결.**
 - **재호출 인지.** 동일 이슈가 3회 연속 잔존하면 "RECURRING — escalate" 표시.
+
+## 거짓양성 억제 (Confidence Threshold)
+
+과잉 지적은 자율 루프를 불필요하게 되돌린다. 다음을 지킨다:
+
+- **확신 없으면 보고하지 않는다.** 취향·"더 나을 수도"는 보고 대상이 아니다.
+- 각 BLOCKER/MAJOR 이슈에 **confidence(0-100)** 표기.
+  - confidence ≥ 80 → 그대로 보고
+  - confidence 50-79 → MINOR로 강등 (follow-up, 루프 안 되돌림)
+  - confidence < 50 → 보고 안 함
+- confidence = "AGENTS.md 규칙 또는 명백한 결함(버그·보안·동시성)으로 근거를 댈 수 있는 정도".
+- 명백한 규칙 위반(인용 가능한 AGENTS.md 조항)은 confidence 90+.
+
+출력 시 각 이슈에 `(confidence: N)` 표기.
