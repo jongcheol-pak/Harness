@@ -194,7 +194,7 @@ claude
 
 작은 변경은 빠르게, 큰 변경은 철저하게.
 
-### Trivial Bypass (1줄 작업 가속)
+### Trivial Bypass (1분 작업 가속)
 
 다음 케이스는 plan-feature를 호출하지 않고 직접 처리:
 
@@ -205,8 +205,9 @@ claude
 - 주석 추가
 - 단일 라인 설정 변경 (`.editorconfig`, `.gitignore`)
 - 단일 라인 리소스 변경 (`strings.xml`, `Resources.resx`)
+- **작은 코드 수정** — 값·조건·문자열 변경 등 3줄 이내 (새 함수/클래스/시그니처 추가 아님)
 
-판정 기준: 단일 파일·로직 변경 없음·영향 0·의도 명확. 불확실하면 plan-feature 사용.
+판정 기준: 3줄 이내, 새 정의/시그니처 변경 없음, 의도 명확. 코드 파일(`.cs`, `.xaml`, `.ts` 등)이라도 이 기준을 만족하면 직접 수정합니다. `require-plan-for-write` hook이 작은 변경을 자동 통과시키고, cross-file 영향은 `impact-warn` hook이 사후 검출합니다.
 
 ## 사용 예시
 

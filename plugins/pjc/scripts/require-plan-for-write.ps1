@@ -70,6 +70,39 @@ if ($targetPath -match '[\\/]docs[\\/]' -or
     exit 0
 }
 
+# ---- 작은 변경 통과 (Trivial Edit) ----
+# Edit/MultiEdit의 변경 규모가 작으면 코드 파일이라도 plan 없이 허용.
+# 문구 수정, 라벨 변경, 색상/값 1-2개 변경 등 1분이면 끝나는 작업.
+# 시그니처/구조 변경의 cross-file 영향은 PostToolUse impact-warn hook이 별도 검출.
+if ($data.tool_name -eq 'Edit' -or $data.tool_name -eq 'MultiEdit') {
+    $oldStr = $data.tool_input.old_string
+    $newStr = $data.tool_input.new_string
+
+    # MultiEdit은 edits 배열 — 전체 합산
+    if ($data.tool_name -eq 'MultiEdit' -and $data.tool_input.edits) {
+        $oldStr = ($data.tool_input.edits | ForEach-Object { $_.old_string }) -join "`n"
+        $newStr = ($data.tool_input.edits | ForEach-Object { $_.new_string }) -join "`n"
+    }
+
+    if ($null -ne $oldStr -and $null -ne $newStr) {
+        $oldLines = ($oldStr -split "`n").Count
+        $newLines = ($newStr -split "`n").Count
+        $maxLines = [Math]::Max($oldLines, $newLines)
+        $maxLen = [Math]::Max($oldStr.Length, $newStr.Length)
+
+        # 새 정의(함수/클래스/메서드) 추가 패턴 — 이건 trivial 아님
+        $definesNewSymbol = $newStr -match '(?m)\b(class|interface|struct|enum|record)\s+\w' -or
+                            $newStr -match '(?m)\b(public|private|protected|internal|static)\s+[\w<>\[\],\s]+\s+\w+\s*\(' -or
+                            $newStr -match '(?m)\b(def|func|fun|function)\s+\w+\s*\('
+
+        # 작은 변경 (3줄 이내 + 300자 이내) + 새 심볼 정의 아님 → trivial 통과
+        if ($maxLines -le 3 -and $maxLen -le 300 -and -not $definesNewSymbol) {
+            [Console]::Error.WriteLine("[HARNESS] Trivial edit (<=3줄, 새 정의 없음): plan 검사 우회. 영향은 impact-warn hook이 검증합니다.")
+            exit 0
+        }
+    }
+}
+
 # ---- 우회 환경변수 ----
 if ($env:CLAUDE_HARNESS_QUICK -eq '1') {
     [Console]::Error.WriteLine("[HARNESS] QUICK 모드: plan 검사 우회")

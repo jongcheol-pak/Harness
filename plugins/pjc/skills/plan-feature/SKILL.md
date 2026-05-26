@@ -1,5 +1,5 @@
 ---
-description: Use when the user requests code change beyond trivial single-line edits. Triggers on phrases like "계획", "설계", "어떻게 구현", "feature 추가", "리팩토링", "구현", "plan", "design", "implement". TRIVIAL BYPASS - Do NOT trigger for the following obvious single-shot edits where Claude can directly apply the change without a plan - UI text/label changes ("버튼 라벨", "메시지 문구" 등), icon/image file swaps, color/size token tweaks (1-2 values), README/문서 typo fixes, comment additions, single-line config edits (.editorconfig, .gitignore), or single-line resource changes (strings.xml, Resources.resx). For those, Claude proceeds directly with Write/Edit and lets the PostToolUse impact-warn hook validate. Use plan-feature ONLY when the change involves multiple files, logic flow, signature changes, or has unclear impact. When in doubt, prefer plan-feature.
+description: Use when the user requests code change beyond trivial edits. Triggers on phrases like "계획", "설계", "어떻게 구현", "feature 추가", "리팩토링", "구현", "plan", "design", "implement". TRIVIAL BYPASS - Do NOT use plan-feature for small, low-impact edits that take about a minute - UI text/label changes, icon/image swaps, color/size token tweaks, typo fixes, comment additions, single-line config/resource edits, AND small code edits (roughly 3 lines or fewer that do NOT add a new function/class/method or change a signature). For these, Claude edits directly with Write/Edit; the PostToolUse impact-warn hook validates cross-file impact, and the require-plan-for-write hook auto-allows small edits. Use plan-feature when the change spans multiple files, alters logic flow, changes a signature, adds a new function/class, or has unclear impact. When it is genuinely ambiguous whether a request is trivial or needs a plan, do NOT silently force a plan - ask the user first with a short A) edit directly / B) make a plan choice, then follow their pick. Only skip the question when the request is clearly trivial (edit directly) or clearly large (use plan-feature).
 argument-hint: "<요청 설명>"
 ---
 
@@ -20,14 +20,43 @@ argument-hint: "<요청 설명>"
 | 주석 추가 | "이 메서드에 한글 주석 추가" |
 | 단일 라인 설정 | ".editorconfig에 한 줄 추가", "gitignore에 폴더 추가" |
 | 단일 라인 리소스 | "strings.xml의 키 한 개 값 변경" |
+| **작은 코드 수정** | **변수 값·조건·문자열 변경 등 3줄 이내, 새 함수/클래스/시그니처 추가 아님** |
 
 **Trivial 판정 기준** (모두 만족):
-1. 변경 대상이 **단일 파일·단일 위치**
-2. **로직 흐름·시그니처·구조** 변경 없음
-3. **영향 범위가 명확히 0** (다른 파일 caller 없음, 또는 caller가 영향 안 받음)
-4. 사용자 요청이 **명백하고 단순** (의도 모호함 없음)
+1. 변경이 **3줄 이내, 단일 위치**
+2. **새 함수/클래스/메서드 추가 없음, 시그니처 변경 없음**
+3. 사용자 요청이 **명백하고 단순** (의도 모호함 없음)
 
-**불확실하면 → plan-feature 사용.** 안전 우선.
+위 3개를 만족하면 코드 파일(`.cs`, `.xaml`, `.ts`, `.kt`, `.py` 등)이라도 직접 수정한다.
+`require-plan-for-write` hook이 작은 변경을 자동 통과시키고, cross-file 영향은 `impact-warn` hook이 사후 검출한다.
+
+### 애매한 경우 — 자동으로 plan 강제하지 말고 사용자에게 질문
+
+요청이 trivial인지 plan이 필요한지 **판단이 애매하면, 임의로 plan-feature를 강제하지 않는다.** 대신 사용자에게 한 번 묻는다:
+
+```
+이 작업은 간단할 수도 있고 계획이 필요할 수도 있어 보입니다.
+
+[요청 요약: <한 줄>]
+[애매한 이유: <예: 영향 범위가 불확실 / 여러 파일 가능성 / 시그니처 변경 가능성>]
+
+A) 바로 수정 (빠르게, plan 없이)
+B) 계획부터 세우기 (plan-feature — 영향 분석 + 검증)
+```
+
+- 사용자가 **A** → 직접 Write/Edit (impact-warn hook이 사후 안전망)
+- 사용자가 **B** → plan-feature 정식 진행
+- 명백히 trivial(위 3기준 충족)하거나 명백히 큰 작업(다중 파일·시그니처·새 정의)이면 **묻지 말고** 각각 직접 수정 / plan 진행
+
+즉 판단은 3갈래다:
+
+| 상황 | 행동 |
+|---|---|
+| 명백히 trivial (3기준 충족) | 묻지 않고 직접 수정 |
+| 명백히 큰 작업 | 묻지 않고 plan-feature |
+| **애매** | **사용자에게 A/B 질문** |
+
+질문은 작업당 한 번만. 사용자가 선택하면 그대로 진행한다.
 
 **Trivial 작업의 안전망**: `impact-warn.ps1` PostToolUse hook이 자동 caller 영향 검출.
 
