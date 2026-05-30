@@ -9,8 +9,17 @@ $ErrorActionPreference = 'SilentlyContinue'
 $disableFile = Join-Path $env:USERPROFILE ".claude\.disabled\require-evidence"
 if (Test-Path -LiteralPath $disableFile) { exit 0 }
 
-# stdin 소비 (JSON이 오더라도 무시)
-$null = [Console]::In.ReadToEnd()
+# stdin JSON에서 cwd 추출 (Claude Code가 hook을 어디서 실행하든 프로젝트 루트로 이동)
+$inputJson = [Console]::In.ReadToEnd()
+try {
+    $data = $inputJson | ConvertFrom-Json
+    if ($data.cwd -and (Test-Path -LiteralPath $data.cwd -PathType Container)) {
+        Set-Location -LiteralPath $data.cwd
+    }
+} catch { }
+if ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $env:CLAUDE_PROJECT_DIR -PathType Container)) {
+    Set-Location -LiteralPath $env:CLAUDE_PROJECT_DIR
+}
 
 # git 저장소인지 확인 (현재 작업 디렉터리 기준)
 $gitDir = & git rev-parse --git-dir 2>$null

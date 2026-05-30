@@ -1,6 +1,14 @@
 ﻿# PreToolUse hook - PowerShell 버전
 # Bash 도구 호출 시 파괴적 명령 차단.
 # exit 2 = block (Claude에게 차단 사유 전달).
+#
+# ⚠️ 이 hook은 의도적으로 토글 불가합니다.
+#   - 다른 hook(require-plan-for-write, impact-warn 등)과 달리
+#     ~/.claude/.disabled/ 체크를 하지 않습니다.
+#   - 파괴적 명령 차단은 사용자 안전 보장의 마지막 방어선이므로
+#     harness-toggle skill로도 끌 수 없게 합니다.
+#   - 환경변수 CLAUDE_HARNESS_QUICK도 무시합니다.
+#   - 이 동작을 변경하지 마세요.
 
 $ErrorActionPreference = 'Stop'
 

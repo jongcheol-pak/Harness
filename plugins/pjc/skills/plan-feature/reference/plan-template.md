@@ -9,6 +9,19 @@
 
 AGENTS.md에 `Plan Location: <plan.md | docs/plans/>`로 명시되어 있으면 그것을 따른다.
 
+## 작성 시 주의 — 민감 정보
+
+plan.md는 **git에 commit되어 영구 보존**되며, PreCompact hook이 스냅샷도 백업한다.
+다음을 plan.md에 적지 않는다:
+
+- API key, access token, secret
+- password, connection string
+- 개인정보(이메일·전화·실명 등)
+- 내부 URL/도메인 중 외부 노출 시 민감한 것
+
+필요하면 **환경변수 이름만** 적고 실제 값은 `.env`(gitignore)에서 관리.
+예: `❌ DATABASE_URL=postgres://user:pass@host/db` → `✅ DATABASE_URL은 .env에 정의`
+
 ## Template
 
 ```markdown
@@ -77,6 +90,13 @@ AGENTS.md에 `Plan Location: <plan.md | docs/plans/>`로 명시되어 있으면 
 <!-- implement-task가 2 task마다 갱신. 장시간 작업의 컨텍스트 누적 대비. -->
 <!-- 예: -->
 <!-- - T1-T2 완료 (커밋 abc123, def456): <핵심 변경 요약> -->
+
+## Next Steps
+<!-- 중간 체크포인트·세션 종료 시 implement-task가 갱신. 다음 작업자(또는 미래의 본인)가 재개하기 위한 안내. -->
+<!-- 예: -->
+<!-- - 권장 다음 액션: T7부터 implement-task 재개 -->
+<!-- - 또는: 모든 task 완료, PR 생성 후 공식 /code-review 호출 -->
+<!-- - Suggested skills: pjc:implement-task / 공식 /code-review / /security-review -->
 
 ## Open Questions
 - [ ] Q1: <질문> (사용자 답변 후 plan 갱신)

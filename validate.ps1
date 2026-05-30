@@ -124,7 +124,7 @@ if (Test-Item-Exists $togglePath "harness-toggle.ps1") {
 }
 Write-Host ""
 
-# 7. 토글 디렉터리 접근
+# 7. 토글 메커니즘 (hook 토글)
 Write-Host "7. 토글 메커니즘" -ForegroundColor Yellow
 $disabledDir = Join-Path $env:USERPROFILE ".claude\.disabled"
 if (Test-Path -LiteralPath $disabledDir) {
@@ -139,6 +139,43 @@ if (Test-Path -LiteralPath $disabledDir) {
     }
 } else {
     Write-Host "  [OK]   토글 디렉터리 없음 (모든 hook 활성, 정상)" -ForegroundColor Green
+}
+Write-Host ""
+
+# 7-1. Plugin Enabled 상태 검증 (Claude Code 인식 여부)
+Write-Host "7-1. Plugin Enabled 상태" -ForegroundColor Yellow
+$userSettings = Join-Path $env:USERPROFILE ".claude\settings.json"
+$enableStatus = "unknown"
+if (Test-Path -LiteralPath $userSettings) {
+    try {
+        $settings = Get-Content -LiteralPath $userSettings -Raw | ConvertFrom-Json
+        if ($settings.enabledPlugins) {
+            $pjcKey = $settings.enabledPlugins.PSObject.Properties | Where-Object { $_.Name -match "^pjc(@|$)" }
+            if ($pjcKey) {
+                if ($pjcKey.Value -eq $true) {
+                    $enableStatus = "enabled"
+                    Write-Host "  [OK]   settings.json에 pjc enabled" -ForegroundColor Green
+                    $script:pass++
+                } elseif ($pjcKey.Value -eq $false) {
+                    $enableStatus = "disabled"
+                    Write-Host "  [FAIL] settings.json에 pjc가 false로 설정됨" -ForegroundColor Red
+                    Write-Host "         해결: claude plugin enable pjc@pjc-harness" -ForegroundColor DarkGray
+                    Write-Host "         또는 settings.json에서 해당 항목 제거" -ForegroundColor DarkGray
+                    $script:fail++
+                }
+            }
+        }
+        if ($enableStatus -eq "unknown") {
+            Write-Host "  [OK]   settings.json에 명시 없음 (기본 enabled 동작)" -ForegroundColor Green
+            $script:pass++
+        }
+    } catch {
+        Write-Host "  [WARN] settings.json 파싱 실패: $($_.Exception.Message)" -ForegroundColor DarkYellow
+        $script:warnings += "settings.json 파싱 실패"
+    }
+} else {
+    Write-Host "  [OK]   settings.json 없음 (기본 enabled 동작)" -ForegroundColor Green
+    $script:pass++
 }
 Write-Host ""
 

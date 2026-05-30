@@ -314,6 +314,18 @@ Elapsed: <Hm Ms> | Turn ~<N>
 이후 task는 전체 대화 history 대신 이 Progress Log + git log를 참조한다.
 이렇게 하면 컨텍스트가 압축(auto-compact)되어도 plan.md에 진행 상황이 남아 복구가 쉽다.
 
+### Next Steps 갱신 (중간 체크포인트 + 최종 보고 시)
+
+장시간 작업 중간 체크포인트(Halt 또는 컨텍스트 한계), 그리고 Phase F 통과 최종 보고 시 plan.md의 `## Next Steps`에 다음을 기록:
+
+```markdown
+## Next Steps
+- 권장 다음 액션: <명확한 한 줄> (예: T7부터 implement-task 재개 / PR 생성 후 /code-review 호출)
+- Suggested skills: <쉼표 구분> (예: pjc:implement-task, 공식 /code-review, 공식 /security-review)
+```
+
+목적: 새 세션에서 종철님이 plan.md만 보고도 무엇을 호출할지 즉시 알 수 있게 함. handoff 패턴 차용.
+
 ### 🚫 금지 표현
 
 - "T2 진행할까요?"

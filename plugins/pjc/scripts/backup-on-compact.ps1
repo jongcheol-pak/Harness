@@ -13,10 +13,23 @@ if (Test-Path -LiteralPath $disableFile) { exit 0 }
 # stdin JSON 읽기 (PreCompact 이벤트 정보)
 $inputJson = [Console]::In.ReadToEnd()
 
+# 프로젝트 루트 결정 (stdin cwd 우선)
+$projectRoot = $null
+try {
+    $data = $inputJson | ConvertFrom-Json
+    if ($data.cwd) { $projectRoot = $data.cwd }
+} catch { }
+if (-not $projectRoot -and $env:CLAUDE_PROJECT_DIR) {
+    $projectRoot = $env:CLAUDE_PROJECT_DIR
+}
+if (-not $projectRoot) {
+    $projectRoot = (Get-Location).Path
+}
+
 # 프로젝트 루트에서 plan.md 검색
 $planCandidates = @(
-    "plan.md",
-    "docs\plan.md"
+    (Join-Path $projectRoot "plan.md"),
+    (Join-Path $projectRoot "docs\plan.md")
 )
 
 $planFile = $null
@@ -28,8 +41,9 @@ foreach ($candidate in $planCandidates) {
 }
 
 # docs/plans/ 디렉터리에서 가장 최근 plan 찾기
-if (-not $planFile -and (Test-Path -LiteralPath "docs\plans" -PathType Container)) {
-    $latest = Get-ChildItem -LiteralPath "docs\plans" -Filter "*.md" -ErrorAction SilentlyContinue |
+$plansDir = Join-Path $projectRoot "docs\plans"
+if (-not $planFile -and (Test-Path -LiteralPath $plansDir -PathType Container)) {
+    $latest = Get-ChildItem -LiteralPath $plansDir -Filter "*.md" -ErrorAction SilentlyContinue |
               Sort-Object LastWriteTime -Descending | Select-Object -First 1
     if ($latest) { $planFile = $latest.FullName }
 }
@@ -39,8 +53,8 @@ if (-not $planFile) {
     exit 0
 }
 
-# 스냅샷 디렉터리
-$snapshotDir = "docs\plans\.snapshots"
+# 스냅샷 디렉터리 (프로젝트 루트 기준)
+$snapshotDir = Join-Path $projectRoot "docs\plans\.snapshots"
 if (-not (Test-Path -LiteralPath $snapshotDir)) {
     New-Item -ItemType Directory -Path $snapshotDir -Force | Out-Null
 }

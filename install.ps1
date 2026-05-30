@@ -194,6 +194,18 @@ try {
     }
 }
 
+# ---- 7-1. Plugin 활성화 (방어적 명시 호출) ----
+# install이 기본 자동 enable이지만, 사용자 settings.json의 enabledPlugins에
+# 명시적으로 false로 남아 있는 경우 무시되지 않으므로 명시 호출.
+try {
+    $enableOutput = & claude plugin enable pjc@pjc-harness 2>&1 | Out-String
+    if ($enableOutput.Trim()) { Write-Info $enableOutput.Trim() }
+    Write-Ok "Plugin 'pjc' enabled"
+} catch {
+    Write-Warn "Plugin enable 실패 (이미 enabled일 수 있음): $($_.Exception.Message)"
+    Write-Info "수동 확인: claude 시작 후 /plugin list"
+}
+
 # ---- 8. 검증 ----
 if (-not $SkipVerification) {
     Write-Section "Verification"
@@ -261,6 +273,17 @@ Write-Host "    /pjc:harness-toggle <hook> <on|off|toggle|status>" -ForegroundCo
 Write-Host ""
 
 Write-Host "Installation complete." -ForegroundColor Green
+Write-Host ""
+
+Write-Host "다음 단계 (Claude Code 시작 후):" -ForegroundColor Cyan
+Write-Host "  /plugin list                  # pjc Harness가 Enabled인지 확인" -ForegroundColor White
+Write-Host "  /reload-plugins               # 필요 시 새 변경 반영" -ForegroundColor White
+Write-Host ""
+Write-Host "skill이 자동 실행 안 되는 경우:" -ForegroundColor Cyan
+Write-Host "  /plugin list 에서 Disabled로 보이면 - /plugin enable pjc@pjc-harness" -ForegroundColor White
+Write-Host "  REPL 재시작 - claude 종료 후 다시 실행" -ForegroundColor White
+Write-Host "  마지막 수단 - notepad `$env:USERPROFILE\.claude\settings.json" -ForegroundColor White
+Write-Host "                enabledPlugins 의 pjc 항목을 true로 또는 제거" -ForegroundColor White
 Write-Host ""
 
 if ($claudeProc) {

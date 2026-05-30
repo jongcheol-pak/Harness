@@ -25,6 +25,13 @@ try {
 if ([string]::IsNullOrWhiteSpace($file)) { exit 0 }
 if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { exit 0 }
 
+# Claude Code가 hook을 어디서 실행하든 프로젝트 루트로 이동 (git 명령이 .git을 찾을 수 있도록)
+if ($data.cwd -and (Test-Path -LiteralPath $data.cwd -PathType Container)) {
+    Set-Location -LiteralPath $data.cwd
+} elseif ($env:CLAUDE_PROJECT_DIR -and (Test-Path -LiteralPath $env:CLAUDE_PROJECT_DIR -PathType Container)) {
+    Set-Location -LiteralPath $env:CLAUDE_PROJECT_DIR
+}
+
 # 코드 파일만 검사
 $codeExts = @('.cs', '.ts', '.tsx', '.js', '.jsx', '.py', '.java', '.go', '.rs', '.cpp', '.c', '.h', '.hpp', '.fs', '.kt', '.swift')
 $ext = [System.IO.Path]::GetExtension($file).ToLower()

@@ -288,7 +288,7 @@ require-plan-for-write 활성화됨.
 ## 설치 관리
 
 ```powershell
-# 자동 재설치 (1.11.1+, 기본)
+# 자동 재설치 (기본 동작)
 C:\Tools\claude-harness-pjc\install.ps1
 
 # 제거

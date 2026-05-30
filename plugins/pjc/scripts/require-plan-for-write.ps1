@@ -109,17 +109,97 @@ if ($env:CLAUDE_HARNESS_QUICK -eq '1') {
     exit 0
 }
 
-# ---- plan 존재 확인 ----
-$planExists = (Test-Path -LiteralPath 'plan.md' -PathType Leaf) -or `
-              (Test-Path -LiteralPath 'docs/plans' -PathType Container)
+# ---- 프로젝트 루트 결정 ----
+# 우선순위: stdin JSON의 cwd → $CLAUDE_PROJECT_DIR → targetPath 기반 git 루트 → 현재 CWD
+# Claude Code가 hook을 호출할 때 PowerShell의 CWD가 프로젝트 루트라는 보장이 없으므로
+# stdin JSON의 cwd 필드를 신뢰한다 (공식 문서).
+$projectRoot = $null
+if ($data.cwd) {
+    $projectRoot = $data.cwd
+}
+if (-not $projectRoot -and $env:CLAUDE_PROJECT_DIR) {
+    $projectRoot = $env:CLAUDE_PROJECT_DIR
+}
+if (-not $projectRoot -and (-not [string]::IsNullOrEmpty($targetPath)) -and [System.IO.Path]::IsPathRooted($targetPath)) {
+    # targetPath 절대 경로면 거기서 거슬러 올라가 .git 또는 .claude 찾기
+    $dir = [System.IO.Path]::GetDirectoryName($targetPath)
+    while ($dir) {
+        if ((Test-Path -LiteralPath (Join-Path $dir '.git') -PathType Container) -or
+            (Test-Path -LiteralPath (Join-Path $dir '.claude') -PathType Container)) {
+            $projectRoot = $dir
+            break
+        }
+        $parent = [System.IO.Path]::GetDirectoryName($dir)
+        if ($parent -eq $dir) { break }
+        $dir = $parent
+    }
+}
+if (-not $projectRoot) {
+    $projectRoot = (Get-Location).Path
+}
 
-if ($planExists) { exit 0 }
+# ---- plan 존재 확인 (다중 시작점에서 거슬러 올라가며 검색) ----
+# Claude Code가 보낸 cwd가 부정확하거나 작업이 서브디렉터리에서 일어나도
+# 부모 어딘가에 plan.md가 있으면 인식하도록 한다.
+function Test-PlanInDirectory {
+    param([string]$Dir)
+    if ([string]::IsNullOrEmpty($Dir)) { return $false }
+    # 다음 중 하나라도 있으면 plan 있음으로 간주
+    return (Test-Path -LiteralPath (Join-Path $Dir 'plan.md') -PathType Leaf) -or
+           (Test-Path -LiteralPath (Join-Path $Dir 'PLAN.md') -PathType Leaf) -or
+           (Test-Path -LiteralPath (Join-Path $Dir 'docs\plan.md') -PathType Leaf) -or
+           (Test-Path -LiteralPath (Join-Path $Dir 'docs\plans') -PathType Container)
+}
+
+function Find-PlanUpwards {
+    param([string]$StartDir, [int]$MaxDepth = 8)
+    if ([string]::IsNullOrEmpty($StartDir)) { return $null }
+    $dir = $StartDir
+    for ($i = 0; $i -lt $MaxDepth; $i++) {
+        if (-not $dir) { break }
+        if (Test-PlanInDirectory -Dir $dir) { return $dir }
+        # .git 또는 .claude 만나면 거기까지가 프로젝트 루트 → 더 위로 안 감
+        if ((Test-Path -LiteralPath (Join-Path $dir '.git') -PathType Container) -or
+            (Test-Path -LiteralPath (Join-Path $dir '.claude') -PathType Container)) {
+            return $null  # 루트인데 plan 없음
+        }
+        $parent = [System.IO.Path]::GetDirectoryName($dir)
+        if ($parent -eq $dir) { break }
+        $dir = $parent
+    }
+    return $null
+}
+
+# 검색 시작점들 — 어느 하나라도 plan을 찾으면 통과
+$searchStarts = @()
+if ($data.cwd) { $searchStarts += $data.cwd }
+if ($env:CLAUDE_PROJECT_DIR) { $searchStarts += $env:CLAUDE_PROJECT_DIR }
+if ((-not [string]::IsNullOrEmpty($targetPath)) -and [System.IO.Path]::IsPathRooted($targetPath)) {
+    $searchStarts += [System.IO.Path]::GetDirectoryName($targetPath)
+}
+$searchStarts += (Get-Location).Path
+$searchStarts = $searchStarts | Where-Object { -not [string]::IsNullOrEmpty($_) } | Select-Object -Unique
+
+$foundIn = $null
+foreach ($start in $searchStarts) {
+    $found = Find-PlanUpwards -StartDir $start
+    if ($found) { $foundIn = $found; break }
+}
+
+if ($foundIn) { exit 0 }
 
 # ---- 차단 ----
 [Console]::Error.WriteLine("[HARNESS] BLOCKED: 코드 변경 전에 plan이 필요합니다.")
 [Console]::Error.WriteLine("")
-[Console]::Error.WriteLine("대상 파일: $targetPath")
-[Console]::Error.WriteLine("plan.md 또는 docs/plans/ 디렉터리가 없습니다.")
+[Console]::Error.WriteLine("대상 파일       : $targetPath")
+[Console]::Error.WriteLine("결정된 프로젝트 루트: $projectRoot")
+[Console]::Error.WriteLine("검색한 시작점들:")
+foreach ($s in $searchStarts) {
+    [Console]::Error.WriteLine("  - $s")
+}
+[Console]::Error.WriteLine("찾는 위치 (각 시작점에서 부모로 최대 8단계):")
+[Console]::Error.WriteLine("  - plan.md, PLAN.md, docs\plan.md, docs\plans\")
+[Console]::Error.WriteLine("위 위치 어디에도 plan이 없습니다.")
 [Console]::Error.WriteLine("")
 [Console]::Error.WriteLine("해결 방법:")
 [Console]::Error.WriteLine("  1) plan-feature skill 호출:")
@@ -128,7 +208,8 @@ if ($planExists) { exit 0 }
 [Console]::Error.WriteLine("  2) 긴급 1줄 수정 우회 (Claude Code 시작 전 PowerShell에서):")
 [Console]::Error.WriteLine("     `$env:CLAUDE_HARNESS_QUICK = '1'")
 [Console]::Error.WriteLine("")
-[Console]::Error.WriteLine("  3) 다른 plan 경로를 쓰는 프로젝트:")
-[Console]::Error.WriteLine("     docs/plans/ 디렉터리를 만들거나 prefer plan.md 사용")
+[Console]::Error.WriteLine("  3) plan.md 위치 확인:")
+[Console]::Error.WriteLine("     루트의 plan.md 파일 위치와 검색 시작점이 다른 경로일 수 있습니다.")
+[Console]::Error.WriteLine("     모노레포라면 작업 디렉터리 위쪽에 plan.md 또는 docs\plans\ 가 있어야 합니다.")
 
 exit 2

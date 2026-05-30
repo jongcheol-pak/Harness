@@ -1,5 +1,5 @@
 ---
-description: Use when the user requests code change beyond trivial edits. Triggers on phrases like "계획", "설계", "어떻게 구현", "feature 추가", "리팩토링", "구현", "plan", "design", "implement". TRIVIAL BYPASS - Do NOT use plan-feature for small, low-impact edits that take about a minute - UI text/label changes, icon/image swaps, color/size token tweaks, typo fixes, comment additions, single-line config/resource edits, AND small code edits (roughly 3 lines or fewer that do NOT add a new function/class/method or change a signature). For these, Claude edits directly with Write/Edit; the PostToolUse impact-warn hook validates cross-file impact, and the require-plan-for-write hook auto-allows small edits. Use plan-feature when the change spans multiple files, alters logic flow, changes a signature, adds a new function/class, or has unclear impact. When it is genuinely ambiguous whether a request is trivial or needs a plan, do NOT silently force a plan - ask the user first with a short A) edit directly / B) make a plan choice, then follow their pick. Only skip the question when the request is clearly trivial (edit directly) or clearly large (use plan-feature).
+description: Use when the user requests code change beyond trivial edits. Triggers on phrases like "계획", "설계", "feature 추가", "리팩토링", "구현", "plan", "design", "implement". DO NOT trigger for trivial edits (3 lines or fewer, no new function/class/method, no signature change) - those edit directly. For ambiguous cases, ask the user "A) edit directly / B) make a plan" instead of silently forcing a plan. See SKILL body for full Trivial Bypass criteria, decision rounds, and recommended-answer format.
 argument-hint: "<요청 설명>"
 ---
 
@@ -91,7 +91,10 @@ USER-INTERACTIVE                | FULLY AUTONOMOUS
 
 4. **결정 사전화 — 자율 실행 전제.**
    `implement-task`는 plan.md를 받으면 **사용자 개입 없이 모든 task를 끝까지 실행**한다.
-   - 모호한 요구사항은 사용자에게 미리 묻는다 (한 번에 최대 3개, 선택지 제시).
+   - 모호한 요구사항은 **빠짐없이 모두** 사용자에게 미리 묻는다 (카테고리별로 묶어서 한 번에 제시, 개수 제한 없음).
+   - 각 선택지에 **Claude 추천 ★** 표기로 사용자 결정 부담 ↓.
+   - 답변 후 새 모호함 발견 시 **다음 라운드에서 추가 질문 가능** (라운드 통상 3-5회).
+   - **답변 시간 < 재작업 시간**. 질문이 많아 보여도 plan 완전성을 우선한다. 추측으로 코드 작성하면 그게 재작업의 원인.
    - 구현 도중 결정해야 할 분기가 **하나도 남아 있지 않아야** 한다.
    - 자기 검증: **"이 plan을 다른 사람에게 넘겨도 추가 질문 없이 끝낼 수 있는가?"**
 
@@ -119,6 +122,8 @@ USER-INTERACTIVE                | FULLY AUTONOMOUS
 - 영향을 주는 사용자 시나리오는?
 - 명시적으로 out of scope는?
 - 성공을 어떻게 측정하는가?
+
+질문은 Step 9와 같은 형식(카테고리 묶음 + 선택지 + 추천 ★)으로 한다. 이 단계는 보통 1-3개 핵심 질문이지만, 필요하면 더 묻는다.
 
 ### Step 3. 위험 식별
 
@@ -227,9 +232,51 @@ B) 2개 plan으로 분할 (T1-<M>, T<M+1>-<N>)
 - 결과가 BLOCKER 또는 MAJOR면 plan 수정 후 재호출 (최대 3회).
 - 통과 후에만 다음 단계.
 
-### Step 9. Open Questions 해결
+### Step 9. Open Questions 해결 — 일괄·완전 모드
 
-질문이 있으면 **여기서** 사용자에게 일괄 질문. 답변을 plan.md에 반영.
+질문이 있으면 **여기서** 사용자에게 묶어 질문하고, 답변을 plan.md에 반영한다.
+
+#### 질문 형식 (카테고리별 묶음)
+
+질문이 많아도 영역별로 그룹핑하여 가독성 확보. 개수 제한 없음.
+
+```markdown
+## Open Questions
+
+이 plan에 N개 결정이 필요합니다. 카테고리별로 정리했습니다.
+
+### [명명] (3)
+
+Q1. UserService 클래스 이름?
+  A) ★ UserService (현재 컨벤션과 일치, src/Application/Services 패턴)
+  B) UserManager
+  C) AccountService
+
+Q2. ...
+
+### [에러 처리] (4)
+
+Q4. 검증 실패 처리 방식?
+  A) ★ Result<T> 패턴 (AGENTS.md 명시, 프로젝트 일관성)
+  B) 예외 throw
+  C) null 반환
+
+Q5. ...
+
+### [테스트 전략] (2)
+...
+
+### [UI 동작] (3)
+...
+```
+
+#### 원칙
+
+- **각 선택지에 Claude 추천 ★** — 사용자가 그대로 동의하면 빠른 결정, 다른 선택을 원하면 명확한 비교 기준 제공.
+- **추천 근거**를 한 줄로 명시 (AGENTS.md / 코드 컨벤션 / 영향 분석 등).
+- **라운드 반복 가능** — 답변 후 새로 드러난 모호함이 있으면 추가 질문 라운드. 통상 3-5 라운드 이내 종료.
+- 5 라운드를 넘으면 plan 자체가 너무 모호 → 사용자에게 작업 범위 재확인 권고.
+- **답변 시간 부담을 두려워하지 말 것.** plan 미완성으로 추측 코드를 양산하는 비용이 훨씬 크다.
 
 ### Step 10. 사용자 승인 게이트
 
