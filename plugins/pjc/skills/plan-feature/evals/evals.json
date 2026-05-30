@@ -1,0 +1,78 @@
+{
+  "skill_name": "plan-feature",
+  "description": "Trigger eval set for plan-feature. should_trigger covers Korean dev requests with multi-task, refactoring, feature add, bug fix at scope. should_not_trigger covers trivial edits and questions/explanations that should be answered directly.",
+  "evals": [
+    {
+      "id": 1,
+      "query": "사용자 설정 화면을 추가하고 싶어. 테마 전환, 언어 선택, 자동 시작 옵션이 들어가야 해",
+      "should_trigger": true,
+      "rationale": "multi-feature, multiple files, MVVM + service 변경 명백"
+    },
+    {
+      "id": 2,
+      "query": "- 언어 변경시 메뉴 문구 변경 안되는 문제 수정\n- 화면 깜빡임 수정\n- 안내 문구 표시\n- 전체 문구 하드코딩 → 리소스 → 다국어 적용",
+      "should_trigger": true,
+      "rationale": "다중 sub-task 불릿 + i18n 리팩토링"
+    },
+    {
+      "id": 3,
+      "query": "DI 컨테이너를 MS.DI에서 Autofac으로 마이그레이션해줘",
+      "should_trigger": true,
+      "rationale": "DI 리팩토링, 다중 파일, 모든 registration 영향"
+    },
+    {
+      "id": 4,
+      "query": "Result<T> 패턴으로 에러 처리 통일하고 싶은데 어떻게 구현할지 계획 세워줘",
+      "should_trigger": true,
+      "rationale": "명시적 '계획', 다중 파일 리팩토링"
+    },
+    {
+      "id": 5,
+      "query": "결제 모듈 리팩토링하고 단위 테스트 추가",
+      "should_trigger": true,
+      "rationale": "리팩토링 키워드, 다중 task"
+    },
+    {
+      "id": 6,
+      "query": "SettingsViewModel 추가하고 SettingsPage에 바인딩해줘",
+      "should_trigger": true,
+      "rationale": "신규 클래스 + 바인딩, 다중 파일"
+    },
+    {
+      "id": 7,
+      "query": "확인 버튼 라벨 '확인'에서 'OK'로 바꿔줘",
+      "should_trigger": false,
+      "rationale": "단일 라인 UI 라벨 — Trivial Bypass"
+    },
+    {
+      "id": 8,
+      "query": "README 오타 'recieve'를 'receive'로 수정",
+      "should_trigger": false,
+      "rationale": "문서 단일 라인 typo — Trivial Bypass"
+    },
+    {
+      "id": 9,
+      "query": "이 메서드에 한글 주석 한 줄만 달아줘",
+      "should_trigger": false,
+      "rationale": "주석 한 줄 — Trivial Bypass"
+    },
+    {
+      "id": 10,
+      "query": "primary 색상을 #1976D2에서 #336699로 변경",
+      "should_trigger": false,
+      "rationale": "색상 토큰 1개 — Trivial Bypass"
+    },
+    {
+      "id": 11,
+      "query": "MVVM 패턴이 뭔지 설명해줘",
+      "should_trigger": false,
+      "rationale": "설명 요청 — 코드 변경 없음"
+    },
+    {
+      "id": 12,
+      "query": "이 코드 리뷰해줘",
+      "should_trigger": false,
+      "rationale": "리뷰 요청 — 변경 작업 아님"
+    }
+  ]
+}
